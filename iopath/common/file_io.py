@@ -190,7 +190,7 @@ class PathHandler(EventLogger):
             kwargs (Dict[str, Any])
         """
         if self._strict_kwargs_check:
-            if len(kwargs) > 0:
+            if kwargs:
                 raise ValueError("Unused arguments: {}".format(kwargs))
         else:
             logger = logging.getLogger(__name__)
@@ -315,7 +315,7 @@ class PathHandler(EventLogger):
         """
         # Restrict mode until `NonBlockingIO` has async read feature.
         valid_modes = {"w", "a", "b"}
-        if not all(m in valid_modes for m in mode):
+        if any(m not in valid_modes for m in mode):
             raise ValueError("`opena` mode must be write or append")
 
         # TODO: Each `PathHandler` should set its own `self._buffered`
@@ -810,7 +810,7 @@ class HTTPURLHandler(PathHandler):
             file: a file-like object.
         """
         self._check_kwargs(kwargs)
-        assert mode in ("r", "rb"), "{} does not support open with {} mode".format(
+        assert mode in {"r", "rb"}, "{} does not support open with {} mode".format(
             self.__class__.__name__, mode
         )
         assert (
@@ -841,10 +841,7 @@ class OneDrivePathHandler(HTTPURLHandler):
         data_b64_string = (
             data_b64.decode("utf-8").replace("/", "_").replace("+", "-").rstrip("=")
         )
-        result_url = (
-            f"https://api.onedrive.com/v1.0/shares/u!{data_b64_string}/root/content"
-        )
-        return result_url
+        return f"https://api.onedrive.com/v1.0/shares/u!{data_b64_string}/root/content"
 
     def _get_supported_prefixes(self) -> List[str]:
         return [self.ONE_DRIVE_PREFIX]
@@ -921,8 +918,7 @@ class PathManager:
         handler.add_keys(kvs)
 
     def __get_open_keys(self, mode: str, buffering: int) -> Dict[str, VTYPE]:
-        kvs = {}
-        kvs["op"] = "open"
+        kvs = {'op': 'open'}
         if "r" in mode:
             kvs["mode"] = "read"
         elif "w" in mode:
@@ -930,11 +926,7 @@ class PathManager:
         elif "a" in mode:
             kvs["mode"] = "append"
         kvs["buffering"] = buffering
-        if "b" in mode:
-            kvs["format"] = "binary"
-        else:
-            kvs["format"] = "text"
-
+        kvs["format"] = "binary" if "b" in mode else "text"
         return kvs
 
     def opent(
@@ -1315,28 +1307,27 @@ class PathManager:
                 continue
 
             old_handler_type = type(self._path_handlers[prefix])
-            if allow_override:
-                # if using the global PathManager, show the warnings
-                global g_pathmgr
-                if self == g_pathmgr:
-                    logger.warning(
-                        f"[PathManager] Attempting to register prefix '{prefix}' from "
-                        "the following call stack:\n"
-                        + "".join(traceback.format_stack(limit=5))
-                        # show the most recent callstack
-                    )
-                    logger.warning(
-                        f"[PathManager] Prefix '{prefix}' is already registered "
-                        f"by {old_handler_type}. We will override the old handler. "
-                        "To avoid such conflicts, create a project-specific PathManager "
-                        "instead."
-                    )
-                self._path_handlers[prefix] = handler
-            else:
+            if not allow_override:
                 raise KeyError(
                     f"[PathManager] Prefix '{prefix}' already registered by {old_handler_type}!"
                 )
 
+            # if using the global PathManager, show the warnings
+            global g_pathmgr
+            if self == g_pathmgr:
+                logger.warning(
+                    f"[PathManager] Attempting to register prefix '{prefix}' from "
+                    "the following call stack:\n"
+                    + "".join(traceback.format_stack(limit=5))
+                    # show the most recent callstack
+                )
+                logger.warning(
+                    f"[PathManager] Prefix '{prefix}' is already registered "
+                    f"by {old_handler_type}. We will override the old handler. "
+                    "To avoid such conflicts, create a project-specific PathManager "
+                    "instead."
+                )
+            self._path_handlers[prefix] = handler
         # Sort path handlers in reverse order so longer prefixes take priority,
         # eg: http://foo/bar before http://foo
         self._path_handlers = OrderedDict(
