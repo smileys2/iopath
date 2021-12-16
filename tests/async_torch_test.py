@@ -46,8 +46,7 @@ class TestDriver:
                 URI = os.path.join(_tmpdir, "test.ckpt")
 
                 f = self._pathmgr.opena(URI, "wb")
-                i = "*"
-                large = f"{i}" * 1000000000
+                large = '*' * 1000000000
 
                 print("Starting `torch.save` call.")
                 torch.save(

@@ -26,9 +26,8 @@ class EventLogger:
             self._evt = SimpleEventRecord()
 
     def add_writer(self, writer):
-        if b_tmetry_available:
-            if isinstance(writer, TmetryWriter):
-                self._writers.append(writer)
+        if b_tmetry_available and isinstance(writer, TmetryWriter):
+            self._writers.append(writer)
 
     def add_key(self, key: str, val: VTYPE):
         if b_tmetry_available:

@@ -110,9 +110,7 @@ class S3PathHandler(PathHandler):
         """
         self.cache_dir = cache_dir
         from boto3.s3.transfer import TransferConfig
-        self.transfer_config = TransferConfig(
-            **(transfer_config_kwargs if transfer_config_kwargs else {})
-        )
+        self.transfer_config = TransferConfig(**transfer_config_kwargs or {})
 
     def _get_supported_prefixes(self) -> List[str]:
         """
@@ -385,11 +383,7 @@ class S3PathHandler(PathHandler):
 
         elif 'w' in mode:
             # 1. For writing, we give the user io.BytesIO or io.StringIO.
-            if 'b' in mode:
-                buffer = io.BytesIO()
-            else:
-                buffer = io.StringIO()
-
+            buffer = io.BytesIO() if 'b' in mode else io.StringIO()
             # 2. Decorate buffer so that we upload when it's closed by user.
             #       If StringIO, decorator does a simple+expensive conversion
             #       to bytesIO before uploading.
@@ -442,12 +436,10 @@ class S3PathHandler(PathHandler):
         client = self._get_client(bucket)
 
         try:
-            # Raises exception if not exists, else it exists.
-            response = client.head_object(
+            return client.head_object(
                 Bucket=bucket,
                 Key=s3_path
             )
-            return response
         except botocore.exceptions.ClientError as e:
             if e.response['Error']['Message'] == 'Bad Request':
                 raise OSError(
